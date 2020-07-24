@@ -1,13 +1,14 @@
-// import AppError from '../errors/AppError';
-import { getRepository } from 'typeorm';
+import { getCustomRepository } from 'typeorm';
+import AppError from '../errors/AppError';
 import Transaction from '../models/Transaction';
+import TransactionRepository from '../repositories/TransactionsRepository';
 import CreateCategoryService from './CreateCategoryService';
 
 interface RequestDTO {
   title: string;
   value: number;
   type: 'income' | 'outcome';
-  category_title: string;
+  category: string;
 }
 
 class CreateTransactionService {
@@ -15,13 +16,20 @@ class CreateTransactionService {
     title,
     value,
     type,
-    category_title,
+    category,
   }: RequestDTO): Promise<Transaction> {
-    const transactionRepository = getRepository(Transaction);
+    const transactionRepository = getCustomRepository(TransactionRepository);
+
+    if (type === 'outcome') {
+      const { total } = await transactionRepository.getBalance();
+      if (value > total) {
+        throw new AppError('Balance not available...');
+      }
+    }
 
     const createCategory = new CreateCategoryService();
     const { id } = await createCategory.execute({
-      title: category_title,
+      title: category,
     });
 
     const newTransaction = transactionRepository.create({
